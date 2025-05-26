@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8">
+  <title>Blog Kezelő</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    textarea, input { width: 100%; margin-bottom: 10px; }
+    .post { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+    .post button { margin-right: 5px; }
+  </style>
+</head>
+<body>
+  <h1>Blog Bejegyzések</h1>
+
+  <div id="form">
+    <h2>Új bejegyzés</h2>
+    <input id="author" placeholder="Szerző">
+    <input id="title" placeholder="Cím">
+    <input id="category" placeholder="Kategória">
+    <textarea id="content" placeholder="Tartalom"></textarea>
+    <button onclick="createPost()">Mentés</button>
+  </div>
+
+  <hr>
+
+  <div id="posts"></div>
+
+  <script>
+    const API = 'http://localhost:3000/posts';
+
+    async function fetchPosts() {
+      const res = await fetch(API);
+      const posts = await res.json();
+      document.getElementById('posts').innerHTML = posts.map(post => `
+        <div class="post">
+          <h3>${post.title} <small>(${post.category})</small></h3>
+          <p><strong>${post.author}</strong> | ${new Date(post.created_at).toLocaleString()}</p>
+          <p>${post.content}</p>
+          <button onclick="editPost(${post.id})">Szerkesztés</button>
+          <button onclick="deletePost(${post.id})">Törlés</button>
+        </div>
+      `).join('');
+    }
+
+    async function createPost() {
+      const post = {
+        author: document.getElementById('author').value,
+        title: document.getElementById('title').value,
+        category: document.getElementById('category').value,
+        content: document.getElementById('content').value
+      };
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(post)
+      });
+      if (res.status === 409) {
+        alert('Ez a bejegyzés már létezik.');
+      } else {
+        fetchPosts();
+      }
+    }
+
+    async function deletePost(id) {
+      await fetch(`${API}/${id}`, { method: 'DELETE' });
+      fetchPosts();
+    }
+
+    async function editPost(id) {
+      const post = await fetch(`${API}/${id}`).then(res => res.json());
+      document.getElementById('author').value = post.author;
+      document.getElementById('title').value = post.title;
+      document.getElementById('category').value = post.category;
+      document.getElementById('content').value = post.content;
+      document.querySelector('button').onclick = async function () {
+        const res = await fetch(`${API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            author: document.getElementById('author').value,
+            title: document.getElementById('title').value,
+            category: document.getElementById('category').value,
+            content: document.getElementById('content').value
+          })
+        });
+        if (res.status === 409) {
+          alert('Ez a módosított bejegyzés már létezik.');
+        } else {
+          fetchPosts();
+          document.querySelector('button').onclick = createPost;
+        }
+      };
+    }
+
+    fetchPosts();
+  </script>
+</body>
+</html>
